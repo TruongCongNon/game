@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "./index.css";
 function App() {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -8,6 +8,7 @@ function App() {
   const [startTime, setStartTime] = useState(0);
   const [nextBox, setNextBox] = useState(1);
   const [gameStatus, setGameStatus] = useState(" Let's Play");
+  const [isAutoPlay, setIsAutoplay] = useState(false);
   const handlePlaying = () => {
     if (point && !isNaN(point) && point > 0) {
       setIsPlaying(true);
@@ -21,11 +22,19 @@ function App() {
   };
 
   const handleRestart = () => {
-    setIsPlaying(false);
-    setBox([]);
-    setStartTime(startTime);
-    setPoint(0);
-    setNextBox(1);
+    if (isPlaying) {
+      setBox([]);
+      BoxTimeOut(point);
+      setIsClick(false);
+      setNextBox(1);
+      setStartTime(0);
+    } else {
+      setIsPlaying(false);
+      setBox([]);
+      setStartTime();
+      setPoint(0);
+      setNextBox(1);
+    }
   };
   const BoxTimeOut = (count) => {
     const randomBox = Array.from({ length: count }, (_, i) => ({
@@ -43,18 +52,46 @@ function App() {
     setPoint(isNaN(value) ? "" : value);
     setIsClick(null);
   };
-  const handleClickBox = (id) => {
-    if (id === nextBox) {
-      setIsClick(id);
-      setNextBox((prev) => prev + 1);
+  const handleClickBox = useCallback(
+    (id) => {
       setBox((prBox) =>
         prBox.map((b) => (b.id === id ? { ...b, timeout: 3 } : b))
       );
+      if (id === nextBox) {
+        setIsClick(id);
+        setNextBox((prev) => prev + 1);
+      } else {
+        setGameStatus("Game Over");
+        setIsPlaying(false);
+      }
+    },
+    [nextBox]
+  );
+  const autoPlayBox = () => {
+    if (isAutoPlay) {
+      setIsAutoplay(false);
     } else {
-      setGameStatus("Game Over");
-      setIsPlaying(false);
+      setIsAutoplay(true);
     }
   };
+  useEffect(() => {
+    if (isAutoPlay && isPlaying) {
+      const interval = setInterval(() => {
+        setBox((prevBox) => {
+          const nextBoxClick = prevBox.find((b) => b.id === nextBox);
+          if (nextBoxClick) {
+            handleClickBox(nextBoxClick.id);
+            console.log(nextBoxClick.id);
+          }
+          return [...prevBox];
+        });
+      }, 1000);
+
+      return () => {
+        clearInterval(interval);
+      };
+    }
+  }, [isPlaying, isAutoPlay, nextBox, handleClickBox]);
   useEffect(() => {
     if (!isPlaying) return;
     const interval = setInterval(() => {
@@ -153,8 +190,13 @@ function App() {
             >
               Restart
             </button>
-            <button className="border-gray-600 border rounded-md p-1">
-              Auto Play ON
+            <button
+              className={`border-gray-600 border rounded-md p-1 ${
+                isAutoPlay ? "bg-green-400" : ""
+              }`}
+              onClick={autoPlayBox}
+            >
+              {isAutoPlay ? " Auto Play OFF" : " Auto Play ON"}
             </button>
           </>
         )}
